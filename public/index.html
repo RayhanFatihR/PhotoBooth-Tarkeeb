@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Booth Pameran — Photo Strip</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <h1>Photo<span class="gradasi">Pameran</span></h1>
+        <p class="subtitle">3 foto otomatis • Photo strip kekinian • Langsung ke HP via QR</p>
+    </header>
+
+    <div class="container">
+        <!-- Bagian Kamera -->
+        <div class="kamera-box" id="kameraBox">
+            <div class="video-wrapper">
+                <div id="videoWrapper">
+                    <video id="video" autoplay playsinline></video>
+                    <div id="guide"></div>
+                </div>
+                <!-- Overlay countdown di dalam video -->
+                <div class="video-overlay" id="videoOverlay">
+                    <span id="countdown"></span>
+                </div>
+                <span class="live-badge">● LIVE</span>
+            </div>
+
+            <!-- Canvas tersembunyi -->
+            <canvas id="canvas" style="display:none;"></canvas>
+            <canvas id="canvasStrip" class="strip-preview" style="display:none;"></canvas>
+
+            <p id="status" class="status"></p>
+
+            <div class="tombol-area">
+                <button class="btn btn-ambil" id="btnAmbil">
+                    <span class="btn-ikon">📷</span> Mulai Sesi Foto </button>
+                <button class="btn btn-ulang" id="btnUlang" style="display:none;">
+                    <span class="btn-ikon">🔄</span> Foto Lagi
+                </button>
+            </div>
+        </div>
+
+        <!-- Bagian Hasil -->
+        <div id="hasil">
+            <div class="hasil-kartu">
+                <div class="hasil-badge">✅ Berhasil!</div>
+                <h2 class="hasil-judul">Photo Strip Kamu Siap!</h2>
+                <img id="hasilFoto" alt="Hasil Photo Strip">
+
+                <div class="qr-seksi">
+                    <div class="qr-box"><div id="qrcode"></div></div>
+                    <div class="qr-petunjuk">
+                        <p class="qr-judul">📱 Scan untuk Lihat Hasil</p>
+                        <p class="qr-langkah"><b>1.</b> Buka kamera HP</p>
+                        <p class="qr-langkah"><b>2.</b> Arahkan ke QR ini</p>
+                        <p class="qr-langkah"><b>3.</b> Ketuk link yang muncul</p>
+                    </div>
+                </div>
+
+                <p class="id-foto" id="idFoto"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="flash"></div>
+
+    <footer>Photo Booth v3.0 &copy; 2026 — untuk pameran</footer>
+
+    <!-- Library QR Code -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+    <!-- Script utama -->
+    <script src="js/script.js"></script>
+</body>
+</html>

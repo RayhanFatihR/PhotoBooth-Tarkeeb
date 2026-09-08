@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hasil Foto - Photo Booth</title>
+    <link rel="stylesheet" href="css/download.css">
+</head>
+<body>
+
+    <div class="kartu">
+        <h1>📸 Hasil Photomu</h1>
+        <p class="kode">Kode: <span id="kodeFoto">...</span></p>
+
+        <div id="loading">
+            <div class="spinner"></div>
+            <p>Mencari foto...</p>
+        </div>
+
+        <div id="konten" style="display:none;">
+            <img id="previewFoto" alt="Photo Strip Anda">
+            <p class="pertanyaan">Bagaimana hasilnya? 😊</p>
+            <div class="tombol-grup">
+                <a id="btnDownload" class="btn" download>⬇️ Simpan Foto</a>
+                <a href="/" class="btn btn-kembali">🔄 Foto Ulang</a>
+            </div>
+            <p class="tips">💡 Tip: di iPhone, tekan lama foto lalu pilih "Save to Photos"</p>
+        </div>
+
+        <div id="error" style="display:none;">
+            <p class="icon-salah">❌</p>
+            <p>Foto tidak ditemukan.<br>Periksa kode QR dan coba lagi.</p>
+            <a href="/" class="btn btn-kembali">Kembali ke Booth</a>
+        </div>
+    </div>
+
+    <script src="js/download.js"></script>
+</body>
+</html>

@@ -1,0 +1,428 @@
+/* ==========================================
+   style.css — Photo Booth UI v3 (Kekinian)
+   ========================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1.5rem;
+}
+
+/* ── Dekorasi bola blur di latar ── */
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.35;
+    z-index: -1;
+    pointer-events: none;
+}
+
+body::before {
+    width: 400px;
+    height: 400px;
+    background: #FF6B6B;
+    top: -120px;
+    left: -120px;
+}
+
+body::after {
+    width: 450px;
+    height: 450px;
+    background: #6C63FF;
+    bottom: -150px;
+    right: -150px;
+}
+
+/* ══════════ HEADER ══════════ */
+.header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.logo-badge {
+    font-size: 2.8rem;
+    background: rgba(255, 255, 255, 0.08);
+    width: 85px;
+    height: 85px;
+    line-height: 85px;
+    margin: 0 auto 0.8rem;
+    border-radius: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    animation: goyang 3s ease-in-out infinite;
+}
+
+@keyframes goyang {
+    0%, 100% { transform: rotate(-5deg); }
+    50%      { transform: rotate(5deg); }
+}
+
+h1 {
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+h1 .gradasi {
+    display: block;
+    background: linear-gradient(90deg, #FF6B6B, #FFC371, #6C63FF);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: geserWarna 4s linear infinite;
+}
+
+@keyframes geserWarna {
+    to { background-position: 200% center; }
+}
+
+.subtitle {
+    color: rgba(255, 255, 255, 0.55);
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
+}
+
+/* ══════════ LAYOUT ══════════ */
+.container {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 1200px;
+    width: 100%;
+}
+
+.kamera-box {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 25px;
+    padding: 1.5rem;
+    text-align: center;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* ══════════ VIDEO — LANDSCAPE ══════════ */
+.video-wrapper {
+    position: relative;
+    width: 560px;
+    max-width: 100%;
+    aspect-ratio: 16 / 10;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.4);
+}
+
+#video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    display: block;
+}
+
+/* Overlay countdown di dalam video */
+.video-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.video-overlay span {
+    font-size: 9rem;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 0 60px rgba(255, 107, 107, 0.9), 0 5px 20px rgba(0, 0, 0, 0.5);
+    animation: pop 1s ease infinite;
+}
+
+@keyframes pop {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.25); opacity: 0.85; }
+}
+
+/* Badge LIVE */
+.live-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: rgba(255, 60, 60, 0.9);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    padding: 0.3rem 0.8rem;
+    border-radius: 50px;
+    animation: kedip 1.5s ease infinite;
+}
+
+@keyframes kedip {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.5; }
+}
+
+/* Preview strip */
+.strip-preview {
+    width: 300px;
+    height: auto;
+    border-radius: 15px;
+    margin: 0 auto;
+    display: none;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.status {
+    color: #FFC107;
+    font-weight: bold;
+    min-height: 1.5rem;
+    margin-top: 1rem;
+    font-size: 1.05rem;
+}
+
+/* ══════════ TOMBOL ══════════ */
+.tombol-area {
+    margin-top: 0.5rem;
+}
+
+.btn {
+    padding: 1.05rem 2.8rem;
+    font-size: 1.15rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 60px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.btn-ikon {
+    font-size: 1.3rem;
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-3px) scale(1.02);
+}
+
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-ambil {
+    background: linear-gradient(90deg, #FF6B6B, #FF8E53);
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(255, 107, 107, 0.4);
+}
+
+.btn-ambil:hover:not(:disabled) {
+    box-shadow: 0 15px 40px rgba(255, 107, 107, 0.55);
+}
+
+.btn-ulang {
+    background: linear-gradient(90deg, #6C63FF, #8B83FF);
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(108, 99, 255, 0.4);
+}
+
+/* ══════════ FLASH ══════════ */
+#flash {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    display: none;
+    z-index: 999;
+    pointer-events: none;
+}
+
+/* ══════════ HASIL ══════════ */
+#hasil {
+    display: none;
+    text-align: center;
+    animation: muncul 0.5s ease;
+}
+
+@keyframes muncul {
+    from { opacity: 0; transform: translateY(25px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.hasil-kartu {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 25px;
+    padding: 2.5rem 2rem;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.hasil-badge {
+    display: inline-block;
+    background: linear-gradient(90deg, #00C896, #4ADE80);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: bold;
+    padding: 0.4rem 1.3rem;
+    border-radius: 50px;
+    margin-bottom: 0.8rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+.hasil-judul {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+#hasilFoto {
+    width: 300px;
+    max-width: 90vw;
+    border-radius: 15px;
+    border: 4px solid #6C63FF;
+    box-shadow: 0 15px 45px rgba(108, 99, 255, 0.4);
+    margin-bottom: 1.5rem;
+}
+
+/* ── QR + Petunjuk ── */
+.qr-seksi {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.8rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.qr-box {
+    background: #fff;
+    padding: 14px;
+    border-radius: 18px;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35);
+    animation: denyut 2.5s ease-in-out infinite;
+}
+
+@keyframes denyut {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.04); }
+}
+
+#qrcode img,
+#qrcode canvas {
+    display: block;
+}
+
+.qr-petunjuk {
+    text-align: left;
+}
+
+.qr-judul {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #FFC107;
+    margin-bottom: 0.5rem;
+}
+
+.qr-langkah {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.92rem;
+    line-height: 1.8;
+}
+
+.qr-langkah b {
+    color: #FF6B6B;
+}
+
+/* Kode foto gaya tiket */
+.id-foto {
+    display: inline-block;
+    background: rgba(108, 99, 255, 0.15);
+    border: 1px dashed rgba(108, 99, 255, 0.6);
+    color: #A5A0FF;
+    font-size: 1.05rem;
+    letter-spacing: 3px;
+    padding: 0.55rem 1.6rem;
+    border-radius: 12px;
+    margin-top: 0.5rem;
+    font-weight: bold;
+}
+
+/* ══════════ FOOTER ══════════ */
+footer {
+    margin-top: 3rem;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.85rem;
+}
+
+/* ══════════ RESPONSIF ══════════ */
+@media (max-width: 700px) {
+    body { padding: 1.5rem 1rem; }
+    h1 { font-size: 1.7rem; }
+    .logo-badge { width: 65px; height: 65px; line-height: 65px; font-size: 2rem; }
+    .video-overlay span { font-size: 6rem; }
+    .qr-seksi { flex-direction: column; }
+    .qr-petunjuk { text-align: center; }
+}
+
+/* ================================================
+   GARIS BANTU IN-FRAME (kotak panduan preview)
+   ================================================ */
+#videoWrapper {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
+#guide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#guide .kotakPanduan {
+  position: absolute;
+  border: 3px dashed rgba(108, 99, 255, 0.9);
+  background: rgba(108, 99, 255, 0.08);
+  box-sizing: border-box;
+  border-radius: 6px;
+}
+
+#guide .labelPanduan {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 6px;
+  color: #fff;
+  font-size: 13px;
+  background: rgba(26, 26, 46, 0.75);
+  padding: 2px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+  line-height: 1.4;
+}

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Kalibrasi Lubang Frame</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #fff; text-align: center; padding: 20px; }
+  #area { position: relative; display: inline-block; }
+  #area img { display: block; width: 450px; user-select: none; }
+  .kotak { position: absolute; border: 3px dashed lime; cursor: move; box-sizing: border-box; }
+  .kotak .pegangan { position: absolute; right: -8px; bottom: -8px; width: 16px; height: 16px; background: lime; cursor: nwse-resize; border-radius: 3px; }
+  #hasil { background: #fff; color: #1a1a2e; padding: 15px; border-radius: 10px; margin-top: 20px; font-family: monospace; font-size: 15px; text-align: left; display: inline-block; }
+  button { padding: 10px 20px; font-size: 16px; margin: 10px 5px; cursor: pointer; border: none; border-radius: 8px; background: #6C63FF; color: #fff; }
+  button:hover { background: #5750d8; }
+  #previewWrap { display: none; margin-top: 20px; }
+  #previewCanvas { max-width: 100%; border: 2px solid #6C63FF; }
+  h2 { margin-bottom: 5px; }
+  p.petunjuk { color: #aaa; max-width: 500px; margin: 0 auto 15px; }
+</style>
+</head>
+<body>
+<h2>🎯 Alat Kalibrasi Lubang Frame</h2>
+<p class="petunjuk">Geser tiap kotak hijau sampai pas menutupi 3 kotak pemandangan, lalu klik "Preview Hasil". Salin KEDUA baris hasil ke script.js.</p>
+
+<div id="area">
+  <img src="img/frame.png" id="gambar">
+</div>
+
+<br>
+<button id="btnPreview">👁️ Preview Hasil</button>
+<button id="btnKembali" style="display:none;">⬅️ Kembali Kalibrasi</button>
+
+<div id="hasil">Membaca ukuran frame...</div>
+
+<div id="previewWrap">
+  <h3>Hasil persis seperti di booth:</h3>
+  <canvas id="previewCanvas"></canvas>
+</div>
+
+<script>
+var LEBAR_STRIP = 600;
+var TINGGI_STRIP = 0;   // akan diisi otomatis dari ukuran asli gambar
+var SKALA = 600 / 450;  // gambar tampil 450px → strip 600px
+
+var area = document.getElementById('area');
+var hasilDiv = document.getElementById('hasil');
+var previewWrap = document.getElementById('previewWrap');
+var gambar = document.getElementById('gambar');
+
+// Tunggu gambar termuat, lalu hitung TINGGI_STRIP dari rasio asli
+gambar.onload = function() {
+  TINGGI_STRIP = Math.round(LEBAR_STRIP * (gambar.naturalHeight / gambar.naturalWidth));
+  console.log('Ukuran asli frame: ' + gambar.naturalWidth + ' x ' + gambar.naturalHeight);
+  console.log('TINGGI_STRIP = ' + TINGGI_STRIP);
+  tampilkanHasil();
+};
+
+// Posisi awal (perkiraan) — digeser dengan mouse
+var kotakData = [
+  { x: 20, y: 40, w: 410, h: 310 },
+  { x: 20, y: 420, w: 410, h: 310 },
+  { x: 20, y: 790, w: 410, h: 310 }
+];
+
+var elemenKotak = [];
+
+kotakData.forEach(function(d, i) {
+  var el = document.createElement('div');
+  el.className = 'kotak';
+  var peg = document.createElement('div');
+  peg.className = 'pegangan';
+  el.appendChild(peg);
+  area.appendChild(el);
+  elemenKotak.push(el);
+
+  el.addEventListener('mousedown', function(e) { mulaiDrag(e, i, 'pindah'); });
+  peg.addEventListener('mousedown', function(e) { mulaiDrag(e, i, 'ubah'); });
+
+  function mulaiDrag(e, idx, mode) {
+    e.preventDefault();
+    e.stopPropagation();
+    var mulaiX = e.clientX, mulaiY = e.clientY;
+    var awal = { x: kotakData[idx].x, y: kotakData[idx].y, w: kotakData[idx].w, h: kotakData[idx].h };
+
+    function gerak(ev) {
+      var dx = ev.clientX - mulaiX;
+      var dy = ev.clientY - mulaiY;
+      if (mode === 'pindah') {
+        kotakData[idx].x = awal.x + dx;
+        kotakData[idx].y = awal.y + dy;
+      } else {
+        kotakData[idx].w = Math.max(20, awal.w + dx);
+        kotakData[idx].h = Math.max(20, awal.h + dy);
+      }
+      render();
+    }
+    function lepas() {
+      document.removeEventListener('mousemove', gerak);
+      document.removeEventListener('mouseup', lepas);
+      tampilkanHasil();
+    }
+    document.addEventListener('mousemove', gerak);
+    document.addEventListener('mouseup', lepas);
+  }
+});
+
+function render() {
+  kotakData.forEach(function(d, i) {
+    var el = elemenKotak[i];
+    el.style.left = d.x + 'px';
+    el.style.top = d.y + 'px';
+    el.style.width = d.w + 'px';
+    el.style.height = d.h + 'px';
+  });
+}
+
+function getLUBANG() {
+  var d = kotakData;
+  return {
+    x: Math.round(d[0].x * SKALA),
+    lebar: Math.round(d[0].w * SKALA),
+    tinggi: Math.round(d[0].h * SKALA),
+    y: [
+      Math.round(d[0].y * SKALA),
+      Math.round(d[1].y * SKALA),
+      Math.round(d[2].y * SKALA)
+    ]
+  };
+}
+
+function tampilkanHasil() {
+  if (!TINGGI_STRIP) return; // tunggu gambar termuat
+  var L = getLUBANG();
+  hasilDiv.innerHTML =
+    '<b>Salin KEDUA baris ini ke script.js :</b><br><br>' +
+    'var LUBANG = { x: ' + L.x +
+    ', lebar: ' + L.lebar +
+    ', tinggi: ' + L.tinggi +
+    ', y: [' + L.y[0] + ', ' + L.y[1] + ', ' + L.y[2] + '] };<br><br>' +
+    'var TINGGI_STRIP = ' + TINGGI_STRIP + ';';
+}
+
+// ===== PREVIEW: render persis seperti script.js =====
+function muatGambar(src) {
+  return new Promise(function(resolve, reject) {
+    var img = new Image();
+    img.onload = function() { resolve(img); };
+    img.onerror = function() { reject(new Error('Gagal memuat: ' + src)); };
+    img.src = src;
+  });
+}
+
+function buatFotoContoh(nomor) {
+  var c = document.createElement('canvas');
+  c.width = 1280; c.height = 720;
+  var x = c.getContext('2d');
+  var g = x.createLinearGradient(0, 0, 0, 720);
+  g.addColorStop(0, '#4a4a6a');
+  g.addColorStop(1, '#2a2a3a');
+  x.fillStyle = g;
+  x.fillRect(0, 0, 1280, 720);
+  x.fillStyle = '#fff';
+  x.font = 'bold 300px Segoe UI';
+  x.textAlign = 'center';
+  x.textBaseline = 'middle';
+  x.fillText(nomor, 640, 360);
+  return c.toDataURL();
+}
+
+document.getElementById('btnPreview').addEventListener('click', function() {
+  var L = getLUBANG();
+
+  Promise.all([
+    muatGambar('img/frame.png'),
+    muatGambar(buatFotoContoh(1)),
+    muatGambar(buatFotoContoh(2)),
+    muatGambar(buatFotoContoh(3))
+  ]).then(function(hasil) {
+    var frameImg = hasil[0];
+    var imgs = [hasil[1], hasil[2], hasil[3]];
+
+    var c = document.getElementById('previewCanvas');
+    c.width = LEBAR_STRIP;
+    c.height = TINGGI_STRIP;
+    var ctx = c.getContext('2d');
+
+    // SAMA PERSIS dengan gabungkanStrip() di script.js:
+    ctx.clearRect(0, 0, LEBAR_STRIP, TINGGI_STRIP);
+    ctx.drawImage(frameImg, 0, 0, LEBAR_STRIP, TINGGI_STRIP);
+    for (var i = 0; i < 3; i++) {
+      ctx.drawImage(imgs[i], L.x, L.y[i], L.lebar, L.tinggi);
+    }
+
+    area.style.display = 'none';
+    previewWrap.style.display = 'block';
+    document.getElementById('btnPreview').style.display = 'none';
+    document.getElementById('btnKembali').style.display = 'inline-block';
+  });
+});
+
+document.getElementById('btnKembali').addEventListener('click', function() {
+  area.style.display = 'inline-block';
+  previewWrap.style.display = 'none';
+  document.getElementById('btnPreview').style.display = 'inline-block';
+  document.getElementById('btnKembali').style.display = 'none';
+});
+
+render();
+</script>
+</body>
+</html>
