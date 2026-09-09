@@ -1,372 +1,278 @@
-// ==================================================
-// script.js — Photo Booth TARKEEB + Frame PNG
-// Frame sebagai latar, foto DI ATASNYA 
-// ==================================================
+/* ════════════════════════════════════════════
+   PHOTO BOOTH PAMERAN — TARKEEB
+   3 foto otomatis • frame kustom • upload + QR
+   ════════════════════════════════════════════ */
 
-// ⚠️ GANTI dengan yang IP laptop!
-var BASE_URL = 'http://10.10.4.154:3000';
-
-// Jumlah foto per sesi
+// ═══ KONFIGURASI ═══
+var BASE_URL = 'http://10.221.3.222:3000';   // ← IP laptop — dipakai HANYA untuk link QR
 var JUMLAH_FOTO = 3;
+var DURASI_COUNTDOWN = 3;                    // detik per foto
 
-// Posisi kotak foto di atas frame (koordinat strip 600px)
-// HASIL KALIBRASI — ganti dengan angka dari kalibrasi.html
-var LUBANG = { x: 28, lebar: 545, tinggi: 421, y: [53, 537, 1001] };
+// Posisi area foto di dalam frame (dari kalibrasi.html)
+// Harus SAMA dengan AREA di server.js!
+var AREA_FOTO = { x: 4.5, y: 3.3, w: 91.2, h: 93.4 };
 
-// Elemen DOM
-var video = document.getElementById('video');
-var canvas = document.getElementById('canvas');
-var canvasStrip = document.getElementById('canvasStrip');
-var context = canvas.getContext('2d');
-var contextStrip = canvasStrip.getContext('2d');
-var btnAmbil = document.getElementById('btnAmbil');
-var btnUlang = document.getElementById('btnUlang');
-var hasil = document.getElementById('hasil');
-var hasilFoto = document.getElementById('hasilFoto');
-var countdownEl = document.getElementById('countdown');
-var videoOverlay = document.getElementById('videoOverlay');
-var statusEl = document.getElementById('status');
-var flash = document.getElementById('flash');
-var qrcodeDiv = document.getElementById('qrcode');
-var idFotoEl = document.getElementById('idFoto');
 
-// Ukuran strip — sesuaikan dengan hasil kalibrasi
-var LEBAR_STRIP = 600;
-var TINGGI_STRIP = 1800;   // ⚠️ ganti dengan angka TINGGI_STRIP dari kalibrasi
-
-canvas.width = 1280;
-canvas.height = 720;
-canvasStrip.width = LEBAR_STRIP;
-canvasStrip.height = TINGGI_STRIP;
+// ═══ ELEMEN DOM ═══
+var video            = document.getElementById('video');
+var videoContainer   = document.getElementById('videoContainer');
+var countdownOverlay = document.getElementById('countdownOverlay');
+var flashOverlay     = document.getElementById('flashOverlay');
+var btnMulai         = document.getElementById('btnMulai');
+var btnFotoLagi      = document.getElementById('btnFotoLagi');
+var panelPreview     = document.getElementById('panelPreview');
+var panelHasil       = document.getElementById('panelHasil');
+var imgHasil         = document.getElementById('imgHasil');
+var qrBox            = document.getElementById('qrBox');
+var linkDownload     = document.getElementById('linkDownload');
+var dots             = [ document.getElementById('dot1'),
+                         document.getElementById('dot2'),
+                         document.getElementById('dot3') ];
 
 var stream = null;
-var arrayFoto = [];
-var frameImg = null;
+var sedangSesi = false;
+var namaSesi = Date.now() + '-' + Math.random().toString(36).slice(2, 7);
 
-// ==================================================
-// HELPER: MUAT GAMBAR
-// ==================================================
-function muatGambar(src) {
-  return new Promise(function(resolve, reject) {
-    var img = new Image();
-    img.onload = function() { resolve(img); };
-    img.onerror = function() { reject(new Error('Gagal memuat: ' + src)); };
-    img.src = src;
-  });
-}
-
-// ==================================================
-// MUAT FRAME PNG
-// ==================================================
-muatGambar('img/frame.png').then(function(img) {
-  frameImg = img;
-  console.log('Frame OK');
-}).catch(function() {
-  alert('frame.png tidak ditemukan di public/img/');
-});
-
-// ==================================================
-// KAMERA
-// ==================================================
+// ═══ KAMERA — auto pilih Iriun/HP, fallback ke laptop ═══
 function mulaiKamera() {
-  navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
+  navigator.mediaDevices.enumerateDevices()
+    .then(function(devices) {
+      var videoInputs = devices.filter(function(d) { return d.kind === 'videoinput'; });
+
+      console.log('Kamera terdeteksi:');
+      videoInputs.forEach(function(d, i) {
+        console.log(i + ': ' + (d.label || '(tanpa nama)'));
+      });
+
+      var pilihan = null;
+      var kataHP     = /iriun|droidcam|camo|epoccam|canon|eos|phone/i;
+      var kataLaptop = /integrated|built-in|laptop|hd webcam|hd camera/i;
+
+      // 1) Prioritas kamera HP/eksternal
+      for (var i = 0; i < videoInputs.length; i++) {
+        if (kataHP.test(videoInputs[i].label)) { pilihan = videoInputs[i].deviceId; break; }
+      }
+      // 2) Fallback: kamera yang bukan laptop
+      if (!pilihan) {
+        for (var j = 0; j < videoInputs.length; j++) {
+          if (!kataLaptop.test(videoInputs[j].label)) { pilihan = videoInputs[j].deviceId; break; }
+        }
+      }
+      // 3) Fallback terakhir
+      if (!pilihan && videoInputs.length > 1) {
+        pilihan = videoInputs[videoInputs.length - 1].deviceId;
+      }
+
+      var constraints = {
+        video: { width: { ideal: 1920 }, height: { ideal: 1080 } }
+      };
+      if (pilihan) constraints.video.deviceId = { exact: pilihan };
+
+      return navigator.mediaDevices.getUserMedia(constraints);
+    })
     .then(function(s) {
       stream = s;
       video.srcObject = stream;
-      console.log('Kamera OK');
-
-      // Tunggu video benar-benar tampil, baru gambar panduan
-      video.addEventListener('loadeddata', buatPanduanPreview);
-      // Cadangan: cek lagi setelah 1 detik (antisipasi layout lambat)
-      setTimeout(buatPanduanPreview, 1000);
+      console.log('✅ Kamera aktif');
+      setTimeout(posisiPanduan, 800);
     })
     .catch(function(err) {
-      alert('Kamera gagal: ' + err.message);
+      alert('Kamera gagal diakses: ' + err.message);
+      console.error(err);
     });
 }
 
+// ═══ POSISI KOTAK PANDUAN — sinkron dengan AREA_FOTO ═══
+function posisiPanduan() {
+  if (!stream) return;
 
-// ==================================================
-// GARIS BANTU IN-FRAME 
-// Area di dalam kotak = area yang akan masuk ke frame
-// ==================================================
-function buatPanduanPreview() {
-  var guide = document.getElementById('guide');
-  if (!guide) return;
+  var vw = videoContainer.clientWidth;
+  var vh = videoContainer.clientHeight;
 
-  // Pakai getBoundingClientRect — lebih akurat dari clientWidth
-  var rect = video.getBoundingClientRect();
-  var tampilLebar = rect.width;
-  var tampilTinggi = rect.height;
+  var track = stream.getVideoTracks()[0];
+  var settings = track.getSettings();
+  var vidW = settings.width  || 1280;
+  var vidH = settings.height || 720;
 
-  // Jika video belum ter-layout, coba lagi sebentar lagi
-  if (!tampilLebar || !tampilTinggi) {
-    setTimeout(buatPanduanPreview, 300);
-    return;
+  var scale   = Math.max(vw / vidW, vh / vidH);
+  var tampilW = vidW * scale;
+  var tampilH = vidH * scale;
+  var offX    = (tampilW - vw) / 2;
+  var offY    = (tampilH - vh) / 2;
+
+  var kx = AREA_FOTO.x / 100, ky = AREA_FOTO.y / 100;
+  var kw = AREA_FOTO.w / 100, kh = AREA_FOTO.h / 100;
+
+  var kotak = document.querySelector('.kotakPanduan');
+  var label = document.querySelector('.labelPanduan');
+  if (!kotak) return;
+
+  // Video di-mirror → kotak dicerminkan pada sumbu x
+  kotak.style.left   = (vw - (tampilW * (kx + kw)) + offX) + 'px';
+  kotak.style.top    = (tampilH * ky - offY) + 'px';
+  kotak.style.width  = (tampilW * kw) + 'px';
+  kotak.style.height = (tampilH * kh) + 'px';
+
+  if (label) {
+    label.style.left = (vw - (tampilW * (kx + kw / 2)) + offX) + 'px';
   }
+}
+window.addEventListener('resize', posisiPanduan);
 
-  // Rasio kotak frame (sama dengan rasio crop di hasil akhir)
-  var rasioKotak = LUBANG.lebar / LUBANG.tinggi;
+// ═══ SESI FOTO ═══
+btnMulai.addEventListener('click', mulaiSesi);
+btnFotoLagi.addEventListener('click', mulaiSesi);
 
-  var hPanduan = tampilTinggi;
-  var wPanduan = Math.round(hPanduan * rasioKotak);
+function mulaiSesi() {
+  if (sedangSesi) return;
+  sedangSesi = true;
 
-  if (wPanduan > tampilLebar) {
-    wPanduan = tampilLebar;
-    hPanduan = Math.round(tampilLebar / rasioKotak);
-  }
+  panelPreview.style.display = '';
+  panelHasil.style.display = 'none';
+  resetDots();
 
-  var xPanduan = Math.round((tampilLebar - wPanduan) / 2);
-  var yPanduan = Math.round((tampilTinggi - hPanduan) / 2);
+  btnMulai.disabled = true;
+  btnMulai.style.display = 'none';
 
-  guide.innerHTML =
-    '<div class="kotakPanduan" style="' +
-    'left:' + xPanduan + 'px; top:' + yPanduan + 'px; ' +
-    'width:' + wPanduan + 'px; height:' + hPanduan + 'px;">' +
-    '<span class="labelPanduan">Posisikan wajah di dalam kotak ini</span>' +
-    '</div>';
+  ambilFotoKe(1);
 }
 
-
-window.addEventListener('resize', buatPanduanPreview);
-
-// ==================================================
-// COUNTDOWN
-// ==================================================
-function countdown(detik) {
-  return new Promise(function(resolve) {
-    var hitung = detik;
-    videoOverlay.style.display = 'flex';
-    countdownEl.textContent = hitung;
-    var timer = setInterval(function() {
-      hitung--;
-      if (hitung > 0) {
-        countdownEl.textContent = hitung;
-      } else {
-        clearInterval(timer);
-        countdownEl.textContent = '📸';
-        setTimeout(function() { resolve(); }, 400);
-      }
-    }, 1000);
-  });
+function resetDots() {
+  dots.forEach(function(d) { d.className = 'dot'; });
 }
 
-function tunggu(ms) {
-  return new Promise(function(resolve) {
-    setTimeout(resolve, ms);
-  });
-}
+function ambilFotoKe(nomor) {
+  dots[nomor - 1].className = 'dot sedang';
 
-function efekFlash() {
-  flash.style.display = 'block';
-  setTimeout(function() {
-    flash.style.display = 'none';
-  }, 150);
-}
+  var hitung = DURASI_COUNTDOWN;
+  countdownOverlay.textContent = hitung;
+  countdownOverlay.classList.add('aktif');
 
-// ==================================================
-// SESI FOTO (3x)
-// ==================================================
-function mulaiSesiFoto() {
-  btnAmbil.disabled = true;
-  arrayFoto = [];
+  var timer = setInterval(function() {
+    hitung--;
+    if (hitung > 0) {
+      countdownOverlay.textContent = hitung;
+    } else {
+      clearInterval(timer);
+      countdownOverlay.classList.remove('aktif');
+      countdownOverlay.textContent = '';
 
-  var i = 0;
-  function ambilSatu() {
-    statusEl.textContent = 'Foto ' + (i + 1) + ' dari ' + JUMLAH_FOTO;
-    countdown(5).then(function() {
-      arrayFoto.push(potretKamera());
-      efekFlash();
-      i++;
-      if (i < JUMLAH_FOTO) {
-        tunggu(500).then(ambilSatu);
-      } else {
-        selesai();
-      }
-    });
-  }
-  ambilSatu();
-}
+      flashOverlay.classList.add('aktif');
+      setTimeout(function() { flashOverlay.classList.remove('aktif'); }, 150);
 
-// ==================================================
-// POTRET SATU FOTO (mirrored)
-// ==================================================
-function potretKamera() {
-  context.save();
-  context.translate(canvas.width, 0);
-  context.scale(-1, 1);
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  context.restore();
-  return canvas.toDataURL('image/jpeg', 0.92);
-}
-
-// ==================================================
-// CROP TENGAH — foto mengisi kotak PENUH tanpa distorsi
-// Sisi yang lebih panjang terpotong otomatis, rasio asli tetap
-// ==================================================
-function gambarCropTengah(ctx, imgObj, x, y, w, h) {
-  var rasioKotak  = w / h;
-  var rasioKamera = imgObj.width / imgObj.height;
-  var sWidth, sHeight, sx, sy;
-
-  if (rasioKamera > rasioKotak) {
-    // Foto lebih LEBAR dari kotak → potong kiri-kanan
-    sHeight = imgObj.height;
-    sWidth  = sHeight * rasioKotak;
-    sx = (imgObj.width - sWidth) / 2;
-    sy = 0;
-  } else {
-    // Foto lebih TINGGI dari kotak → potong atas-bawah
-    sWidth  = imgObj.width;
-    sHeight = sWidth / rasioKotak;
-    sx = 0;
-    sy = (imgObj.height - sHeight) / 2;
-  }
-
-  ctx.drawImage(imgObj, sx, sy, sWidth, sHeight, x, y, w, h);
-}
-
-// ==================================================
-// SELESAI — susun strip, tampilkan hasil, kirim ke server
-// ==================================================
-function selesai() {
-  statusEl.textContent = 'Menyusun photo strip...';
-  videoOverlay.style.display = 'none';
-
-  var idFoto = 'PB-' + Date.now().toString(36).toUpperCase();
-
-  gabungkanStrip()
-    .then(function(stripURL) {
-      // Tampilkan hasil DULU — pasti terlihat meski upload gagal
-      tampilkanHasil(stripURL, idFoto);
-      statusEl.textContent = '';
-      // Lalu kirim ke server (untuk QR download)
-      return kirimKeServer(stripURL, idFoto);
-    })
-    .catch(function(err) {
-      statusEl.textContent = '';
-      alert('ERROR saat menyusun strip:\n\n' + err.message);
-      resetBooth();
-    });
-}
-
-// ==================================================
-// GABUNGKAN STRIP — frame latar + foto di atasnya (crop tengah)
-// ==================================================
-function gabungkanStrip() {
-  return new Promise(function(resolve, reject) {
-    if (!frameImg) {
-      reject(new Error('Frame belum termuat. Refresh halaman lalu tunggu "Frame OK" di Console.'));
-      return;
+      var foto = tangkapFoto();
+      kirimFoto(nomor, foto);
     }
-
-    contextStrip.clearRect(0, 0, LEBAR_STRIP, TINGGI_STRIP);
-
-    var loaded = 0;
-    var imgs = [];
-    var sudahGagal = false;
-
-    arrayFoto.forEach(function(url, idx) {
-      muatGambar(url).then(function(img) {
-        if (sudahGagal) return;
-        imgs[idx] = img;
-        loaded++;
-        if (loaded === JUMLAH_FOTO) {
-          try {
-            // 1. Frame sebagai latar penuh
-            contextStrip.drawImage(frameImg, 0, 0, LEBAR_STRIP, TINGGI_STRIP);
-
-            // 2. Foto DI ATAS frame — crop tengah, TANPA stretch
-            for (var i = 0; i < JUMLAH_FOTO; i++) {
-              gambarCropTengah(
-                contextStrip,
-                imgs[i],
-                LUBANG.x, LUBANG.y[i], LUBANG.lebar, LUBANG.tinggi
-              );
-            }
-
-            resolve(canvasStrip.toDataURL('image/jpeg', 0.92));
-          } catch (e) {
-            reject(e);
-          }
-        }
-      }).catch(function(err) {
-        sudahGagal = true;
-        reject(err);
-      });
-    });
-  });
+  }, 1000);
 }
 
-// ==================================================
-// KIRIM KE SERVER
-// ==================================================
-function kirimKeServer(dataURL, idFoto) {
-  return fetch('/api/upload', {
+function tangkapFoto() {
+  var W = 1280, H = 960;
+
+  // Ukuran ASLI video (Iriun bisa 16:9 atau portrait!)
+  var vidW = video.videoWidth  || 1280;
+  var vidH = video.videoHeight || 720;
+
+  console.log('Resolusi video:', vidW, 'x', vidH);  // debug — lihat di Console
+
+  // Cover crop — persis seperti preview (object-fit: cover)
+  var scale   = Math.max(W / vidW, H / vidH);
+  var tampilW = vidW * scale, tampilH = vidH * scale;
+  var offX    = (tampilW - W) / 2, offY = (tampilH - H) / 2;
+
+  // Gambar ke canvas dengan mirror, TANPA melar proporsi
+  var sumber = document.createElement('canvas');
+  sumber.width = W; sumber.height = H;
+  var sctx = sumber.getContext('2d');
+  sctx.translate(W, 0);
+  sctx.scale(-1, 1);
+  sctx.drawImage(video, -offX, -offY, tampilW, tampilH);
+
+  // Crop area foto (persen dari canvas W×H)
+  var kiri   = W * AREA_FOTO.x / 100;
+  var atas   = H * AREA_FOTO.y / 100;
+  var lebar  = W * AREA_FOTO.w / 100;
+  var tinggi = H * AREA_FOTO.h / 100;
+
+  var crop = document.createElement('canvas');
+  crop.width  = 640;
+  crop.height = Math.round(640 * tinggi / lebar);
+  var cctx = crop.getContext('2d');
+  cctx.drawImage(sumber, kiri, atas, lebar, tinggi, 0, 0, crop.width, crop.height);
+
+  return crop.toDataURL('image/jpeg', 0.9);
+}
+
+
+function kirimFoto(nomor, dataURL) {
+  fetch('/upload-foto', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image: dataURL, id: idFoto })
+    body: JSON.stringify({ foto: dataURL, sesi: namaSesi, nomor: nomor })
   })
-    .then(function(res) {
-      return res.json().then(function(data) {
-        if (!res.ok) {
-          throw new Error('Server menolak (kode ' + res.status + '). ' + (data.error || ''));
-        }
-      });
-    })
-    .catch(function(err) {
-      // Foto tetap tampil, hanya QR yang bermasalah
-      alert(
-        'Foto BERHASIL dibuat, tetapi gagal dikirim ke server:\n\n' +
-        err.message +
-        '\n\nQR tidak akan berfungsi.\n\n' +
-        "Solusi: di server.js pastikan ada:\n" +
-        "app.use(express.json({ limit: '15mb' }));\n" +
-        'lalu restart server.'
-      );
-    });
-}
-
-// ==================================================
-// TAMPILKAN HASIL + QR
-// ==================================================
-function tampilkanHasil(dataURL, idFoto) {
-  video.style.display = 'none';
-  videoOverlay.style.display = 'none';
-  hasil.style.display = 'block';
-  btnAmbil.style.display = 'none';
-  btnUlang.style.display = 'inline-flex';
-
-  hasilFoto.src = dataURL;
-  idFotoEl.textContent = 'Kode Foto: ' + idFoto;
-  qrcodeDiv.innerHTML = '';
-
-  new QRCode(qrcodeDiv, {
-    text: BASE_URL + '/download.html?id=' + idFoto,
-    width: 200,
-    height: 200,
-    colorDark: '#1a1a2e',
-    colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.H
+  .then(function(res) {
+    if (!res.ok) throw new Error('Server balas ' + res.status);
+    return res.json();
+  })
+  .then(function() {
+    dots[nomor - 1].className = 'dot selesai';
+    if (nomor < JUMLAH_FOTO) {
+      setTimeout(function() { ambilFotoKe(nomor + 1); }, 800);
+    } else {
+      setTimeout(selesaiSesi, 600);
+    }
+  })
+  .catch(function(err) {
+    console.error('Gagal upload foto:', err);
+    alert('Gagal mengirim foto ke server: ' + err.message);
+    sedangSesi = false;
+    btnMulai.disabled = false;
+    btnMulai.style.display = '';
   });
 }
 
-// ==================================================
-// RESET — foto lagi
-// ==================================================
-function resetBooth() {
-  hasil.style.display = 'none';
-  video.style.display = 'block';
-  videoOverlay.style.display = 'none';
-  btnAmbil.style.display = 'inline-flex';
-  btnAmbil.disabled = false;
-  btnUlang.style.display = 'none';
-  buatPanduanPreview();
+// ═══ SELESI — rakit strip, QR, sembunyikan panel kiri ═══
+function selesaiSesi() {
+  sedangSesi = false;
+
+  // Panel kiri disembunyikan — hasil tampil sendiri, center
+  panelPreview.style.display = 'none';
+  panelHasil.style.display = '';
+
+  fetch('/buat-strip', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sesi: namaSesi })
+  })
+  .then(function(res) {
+    if (!res.ok) throw new Error('Server balas ' + res.status);
+    return res.json();
+  })
+  .then(function(data) {
+    var urlStrip = BASE_URL + data.urlStrip;   // IP dipakai di sini — untuk QR
+
+    imgHasil.src = urlStrip;
+
+    qrBox.innerHTML = '';
+    new QRCode(qrBox, {
+      text: urlStrip,
+      width: 180,
+      height: 180
+    });
+    linkDownload.textContent = urlStrip;
+
+    // Sesi baru untuk "Foto Lagi"
+    namaSesi = Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+  })
+  .catch(function(err) {
+    console.error('Gagal membuat strip:', err);
+    alert('Gagal membuat photo strip: ' + err.message);
+    panelPreview.style.display = '';
+    panelHasil.style.display = 'none';
+    btnMulai.disabled = false;
+    btnMulai.style.display = '';
+  });
 }
 
-// ==================================================
-// EVENT LISTENERS + MULAI
-// ==================================================
-btnAmbil.addEventListener('click', mulaiSesiFoto);
-btnUlang.addEventListener('click', resetBooth);
+// ═══ MULAI ═══
 mulaiKamera();
